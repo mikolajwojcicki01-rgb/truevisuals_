@@ -29,7 +29,14 @@ public final class Ragdoll {
     private int bounces;
     private boolean lying;
     private int lieTicks;
-    private float flail = 1f, pflail = 1f;
+    // stawy: 0 prawa ręka (przód/tył), 1 prawa ręka (na zewnątrz), 2-3 lewa ręka, 4-5 prawa noga, 6-7 lewa noga,
+    // 8 głowa (przód/tył), 9 głowa (przechył)
+    private final float[] lim = {0, 25, 0, 25, 0, 8, 0, 8, 0, 0};
+    private final float[] limV = new float[10];
+    private float[] plim = lim.clone();
+    private final float[] lieT = new float[10];
+    private final java.util.Random rng = new java.util.Random();
+    private float lieRoll;
     public boolean dead;
     private double gravity = 0.08;
 
@@ -55,9 +62,12 @@ public final class Ragdoll {
         this.vz = vz;
         java.util.Random r = new java.util.Random();
         float sign = r.nextBoolean() ? 1 : -1;
-        this.wPitch = sign * (16f + r.nextFloat() * 14f);
-        this.wRoll = (r.nextFloat() - 0.5f) * 14f;
-        this.wYaw = (r.nextFloat() - 0.5f) * 10f;
+        this.wPitch = sign * (6f + r.nextFloat() * 6f);
+        this.wRoll = (r.nextFloat() - 0.5f) * 6f;
+        this.wYaw = (r.nextFloat() - 0.5f) * 5f;
+        // wyrzut: ręce rozrzucone, kończyny dostają losowy impuls
+        lim[1] = lim[3] = 55f;
+        for (int i = 0; i < limV.length; i++) limV[i] = (r.nextFloat() - 0.5f) * 10f;
     }
 
     private static boolean solidAt(ClientWorld w, double x, double y, double z) {
@@ -88,7 +98,7 @@ public final class Ragdoll {
 
     public void tick(ClientWorld world) {
         px = x; py = y; pz = z;
-        ppitch = pitch; proll = roll; pyaw = yaw; pflail = flail;
+        ppitch = pitch; proll = roll; pyaw = yaw; plim = lim.clone();
         age++;
 
         if (!lying) {
@@ -107,6 +117,10 @@ public final class Ragdoll {
             y += vy;
             z += vz;
 
+            // opór powietrza wyhamowuje obrót
+            wPitch *= 0.992f;
+            wRoll *= 0.99f;
+            wYaw *= 0.99f;
             pitch += wPitch;
             roll += wRoll;
             yaw += wYaw;
@@ -121,10 +135,13 @@ public final class Ragdoll {
                     wPitch *= 0.45f;
                     wRoll *= 0.45f;
                     wYaw *= 0.4f;
+                    kick(10f);
                     bounces++;
                 } else {
                     lying = true;
                     vy = 0;
+                    chooseLiePose();
+                    kick(14f);
                     pitch = wrap(pitch);
                     roll = wrap(roll);
                     ppitch = pitch;
@@ -132,7 +149,6 @@ public final class Ragdoll {
                 }
             }
             if (age > 220) dead = true; // spadł w pustkę
-            flail = Math.max(0.35f, flail - 0.01f);
         } else {
             lieTicks++;
             double g = groundY(world, x, y, z);
@@ -142,16 +158,72 @@ public final class Ragdoll {
             if (!solidAt(world, x + vx + Math.signum(vx) * 0.3, y, z)) x += vx;
             if (!solidAt(world, x, y, z + vz + Math.signum(vz) * 0.3)) z += vz;
 
-            float targetPitch = pitch > 0 ? 90f : -90f;
-            pitch += (targetPitch - pitch) * 0.3f;
-            roll += (0f - roll) * 0.3f;
+            // opada na ziemię, jak bezwładne ciało (bez sztywnego "przeskoku")
+            float targetPitch = pitch > 0 ? 88f : -88f;
+            pitch += (targetPitch - pitch) * 0.16f;
+            roll += (lieRoll - roll) * 0.18f;
+            yaw += wYaw;
+            wYaw *= 0.8f;
             double targetY = g + 0.14;
-            y += (targetY - y) * 0.4;
-            flail += (0.15f - flail) * 0.2f;
+            y += (targetY - y) * 0.3;
 
             int total = Math.round(Config.I.ragdollLie * 20f) + 10;
             if (lieTicks >= total) dead = true;
         }
+        updateLimbs();
+    }
+
+    private float rn(float lo, float hi) {
+        return lo + rng.nextFloat() * (hi - lo);
+    }
+
+    private void kick(float amount) {
+        for (int i = 0; i < limV.length; i++) limV[i] += (rng.nextFloat() - 0.5f) * 2f * amount;
+    }
+
+    /** Losowa, rozluźniona poza leżącego ciała. */
+    private void chooseLiePose() {
+        lieT[0] = rn(-20, 30);
+        lieT[1] = rn(8, 55);
+        lieT[2] = rn(-20, 30);
+        lieT[3] = rn(8, 55);
+        lieT[4] = rn(-6, 12);
+        lieT[5] = rn(3, 16);
+        lieT[6] = rn(-6, 12);
+        lieT[7] = rn(3, 16);
+        lieT[8] = rn(-15, 25);
+        lieT[9] = rn(-12, 12);
+        lieRoll = rn(-10, 10);
+    }
+
+    private float flyTarget(int i) {
+        float sp = Math.abs(wPitch) + Math.abs(wRoll);
+        return switch (i) {
+            case 0 -> Math.max(-70f, Math.min(70f, -wPitch * 1.8f));
+            case 2 -> Math.max(-70f, Math.min(70f, -wPitch * 1.5f));
+            case 1, 3 -> 28f + sp * 1.5f;
+            case 4 -> Math.max(-40f, Math.min(40f, wPitch));
+            case 6 -> Math.max(-40f, Math.min(40f, wPitch * 0.9f));
+            case 5, 7 -> 6f + sp * 0.8f;
+            case 8 -> Math.max(-30f, Math.min(30f, wPitch * 1.2f));
+            default -> 0f;
+        };
+    }
+
+    /** Kończyny jako tłumione sprężyny: bezwładnie ciągną się za ciałem, po upadku opadają i uspokajają się. */
+    private void updateLimbs() {
+        float k = lying ? 0.10f : 0.16f;
+        float c = lying ? 0.32f : 0.10f;
+        for (int i = 0; i < lim.length; i++) {
+            float t = lying ? lieT[i] : flyTarget(i);
+            limV[i] += k * (t - lim[i]) - c * limV[i];
+            if (!lying) limV[i] += (rng.nextFloat() - 0.5f) * 1.2f;
+            lim[i] += limV[i];
+        }
+        lim[1] = Math.max(-5f, Math.min(150f, lim[1]));
+        lim[3] = Math.max(-5f, Math.min(150f, lim[3]));
+        lim[5] = Math.max(-3f, Math.min(60f, lim[5]));
+        lim[7] = Math.max(-3f, Math.min(60f, lim[7]));
     }
 
     /** Przezroczystość: 1 normalnie, zanika w ostatnich 10 tickach leżenia. */
@@ -171,23 +243,24 @@ public final class Ragdoll {
         float rPitch = ppitch + (pitch - ppitch) * td;
         float rRoll = proll + (roll - proll) * td;
         float rYaw = pyaw + (yaw - pyaw) * td;
-        float fl = pflail + (flail - pflail) * td;
-        float tt = (age + td) * 0.5f;
+        float[] l = new float[lim.length];
+        for (int i = 0; i < l.length; i++) l[i] = plim[i] + (lim[i] - plim[i]) * td;
 
-        float armX = (float) Math.sin(tt) * 70f * fl;
-        float armXr = (float) Math.sin(tt + 2.2f) * 70f * fl;
-        float legX = (float) Math.sin(tt + 1.0f) * 40f * fl;
-        float legXl = (float) Math.sin(tt + 3.3f) * 40f * fl;
-        float splay = 25f + 25f * fl;
-
-        renderPose(ms, vc, camX, camY, camZ, rx, ry, rz, rYaw, rPitch, rRoll, a, light,
-                armX, armXr, legX, legXl, splay);
+        renderPose2(ms, vc, camX, camY, camZ, rx, ry, rz, rYaw, rPitch, rRoll, a, light, l);
     }
 
     /** Rysuje model w podanej pozie (używane też przez fake playera). */
     public void renderPose(MatrixStack ms, VertexConsumer vc, double camX, double camY, double camZ,
                            double rx, double ry, double rz, float rYaw, float rPitch, float rRoll,
                            float a, int light, float armX, float armXr, float legX, float legXl, float splay) {
+        renderPose2(ms, vc, camX, camY, camZ, rx, ry, rz, rYaw, rPitch, rRoll, a, light,
+                new float[]{armX, splay, armXr, splay, legX, splay * 0.3f, legXl, splay * 0.3f, 0f, 0f});
+    }
+
+    /** Pozycja z pełną kontrolą stawów: patrz opis tablicy lim. */
+    public void renderPose2(MatrixStack ms, VertexConsumer vc, double camX, double camY, double camZ,
+                            double rx, double ry, double rz, float rYaw, float rPitch, float rRoll,
+                            float a, int light, float[] l) {
         ms.push();
         ms.translate(rx - camX, ry - camY, rz - camZ);
         ms.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-rYaw));
@@ -195,23 +268,23 @@ public final class Ragdoll {
         ms.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rRoll));
 
         // głowa + hat
-        part(ms, vc, a, light, 0, 0, -4, 24, -4, 4, 32, 4, 0, 0, 28, 0, 0, 0);
-        part(ms, vc, a, light, 32, 0, -4, 24, -4, 4, 32, 4, 0.5f, 0, 28, 0, 0, 0);
+        part(ms, vc, a, light, 0, 0, -4, 24, -4, 4, 32, 4, 0, 0, 24, l[8], l[9], 0);
+        part(ms, vc, a, light, 32, 0, -4, 24, -4, 4, 32, 4, 0.5f, 0, 24, l[8], l[9], 0);
         // tułów + jacket
         part(ms, vc, a, light, 16, 16, -4, 12, -2, 4, 24, 2, 0, 0, 18, 0, 0, 0);
         part(ms, vc, a, light, 16, 32, -4, 12, -2, 4, 24, 2, 0.25f, 0, 18, 0, 0, 0);
         // prawa ręka (-X)
-        part(ms, vc, a, light, 40, 16, -8, 12, -2, -4, 24, 2, 0, -6, 22, armX, -splay, 0);
-        part(ms, vc, a, light, 40, 32, -8, 12, -2, -4, 24, 2, 0.25f, -6, 22, armX, -splay, 0);
+        part(ms, vc, a, light, 40, 16, -8, 12, -2, -4, 24, 2, 0, -6, 22, l[0], -l[1], 0);
+        part(ms, vc, a, light, 40, 32, -8, 12, -2, -4, 24, 2, 0.25f, -6, 22, l[0], -l[1], 0);
         // lewa ręka (+X)
-        part(ms, vc, a, light, 32, 48, 4, 12, -2, 8, 24, 2, 0, 6, 22, armXr, splay, 0);
-        part(ms, vc, a, light, 48, 48, 4, 12, -2, 8, 24, 2, 0.25f, 6, 22, armXr, splay, 0);
+        part(ms, vc, a, light, 32, 48, 4, 12, -2, 8, 24, 2, 0, 6, 22, l[2], l[3], 0);
+        part(ms, vc, a, light, 48, 48, 4, 12, -2, 8, 24, 2, 0.25f, 6, 22, l[2], l[3], 0);
         // prawa noga
-        part(ms, vc, a, light, 0, 16, -4, 0, -2, 0, 12, 2, 0, -2, 12, legX, -splay * 0.3f, 0);
-        part(ms, vc, a, light, 0, 32, -4, 0, -2, 0, 12, 2, 0.25f, -2, 12, legX, -splay * 0.3f, 0);
+        part(ms, vc, a, light, 0, 16, -4, 0, -2, 0, 12, 2, 0, -2, 12, l[4], -l[5], 0);
+        part(ms, vc, a, light, 0, 32, -4, 0, -2, 0, 12, 2, 0.25f, -2, 12, l[4], -l[5], 0);
         // lewa noga
-        part(ms, vc, a, light, 16, 48, 0, 0, -2, 4, 12, 2, 0, 2, 12, legXl, splay * 0.3f, 0);
-        part(ms, vc, a, light, 0, 48, 0, 0, -2, 4, 12, 2, 0.25f, 2, 12, legXl, splay * 0.3f, 0);
+        part(ms, vc, a, light, 16, 48, 0, 0, -2, 4, 12, 2, 0, 2, 12, l[6], l[7], 0);
+        part(ms, vc, a, light, 0, 48, 0, 0, -2, 4, 12, 2, 0.25f, 2, 12, l[6], l[7], 0);
 
         ms.pop();
     }
