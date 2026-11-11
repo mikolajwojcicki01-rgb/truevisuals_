@@ -68,8 +68,8 @@ public final class VisualsRenderer {
             targets.add(p);
         }
 
-        boolean anyLight = c.trailOn || !Fx.BOLTS.isEmpty() || !Fx.FLASHES.isEmpty() || c.ambientStars
-                || (!targets.isEmpty() && (c.rings || c.groundRing || c.magicCircle || c.playerStars));
+        boolean anyLight = c.trailOn || c.tbOn || !Fx.BOLTS.isEmpty() || !Fx.FLASHES.isEmpty() || c.ambientStars
+                || (!targets.isEmpty() && (c.rings || c.groundRing || c.magicCircle || c.playerStars || PlayerFx.any()));
 
         // ---------- faza 1: świecące kształty ----------
         if (anyLight) {
@@ -87,6 +87,7 @@ public final class VisualsRenderer {
             for (Fx.Bolt b : Fx.BOLTS) bolt(b, right, up);
             flashes(world, td, inten);
             Extras.renderTrails(mc, world, td, time, inten, targets);
+            Extras.renderTargetBox(mc, world, td, time, inten, right, up);
 
             for (AbstractClientPlayerEntity p : targets) {
                 Vec3d pos = p.getLerpedPos(td);
@@ -96,6 +97,7 @@ public final class VisualsRenderer {
                 if (c.magicCircle) magicCircleLines(pos, inten);
                 if (c.rings) swirls(pos, p.getHeight(), inten);
                 if (c.playerStars) playerStars(pos, seed, right, up, inten);
+                PlayerFx.draw(pos.x, pos.y, pos.z, p.getHeight(), time, inten, right, up, seed);
             }
         }
 

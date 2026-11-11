@@ -14,6 +14,8 @@ public class Config {
 
     public static Config I = new Config();
 
+    public int ver = 0;                   // wersja configu (migracje)
+
     // --- visualsy ---
     public boolean rings = true;          // wirujące pierścienie wokół gracza
     public boolean groundRing = true;     // świecący okrąg pod graczem
@@ -64,9 +66,26 @@ public class Config {
     // --- zabicie ---
     public int killEffect = 11;           // indeks w Fx.KILL_EFFECTS (10 = złota eksplozja jak na filmie)
     public boolean killTitle = true;      // napis ZABÓJSTWO
-    public int killSound = 1;             // indeks w Fx.KILL_SOUNDS
+    public int killSound = 0;             // indeks w Fx.KILL_SOUNDS
     public float killVolume = 1.0f;
     public float killPitch = 1.0f;
+
+    // --- dodatkowe efekty wokół gracza ---
+    public boolean fxHalo = false;
+    public boolean fxHelix = false;
+    public boolean fxOrbs = false;
+    public boolean fxFlames = false;
+    public boolean fxPillar = false;
+    public boolean fxRain = false;
+    public int fxColor = 11;              // Motyw
+    public float fxHue = 0.6f;
+
+    // --- kwadrat na celu pod celownikiem ---
+    public boolean tbOn = true;
+    public int tbStyle = 0;               // 0 = kwadrat, 1 = ramka 3D
+    public int tbColor = 11;
+    public float tbHue = 0.0f;
+    public float tbSize = 1.0f;
 
     // --- damage indicator ---
     public boolean dmgOn = true;
@@ -145,6 +164,8 @@ public class Config {
     public static final String[] ZOOM_KEYS = {"C", "Z", "V", "B", "X", "Alt"};
     public static final int[] ZOOM_GLFW = {67, 90, 86, 66, 88, 342};
 
+    public static final String[] TB_STYLES = {"Kwadrat", "Ramka 3D"};
+
     public static final String[] TARGETS = {"Tylko ja", "Inni gracze", "Wszyscy"};
 
     public static int themeA() { return THEME_COLORS[safeTheme()][0]; }
@@ -202,6 +223,11 @@ public class Config {
             VisualsMod.LOGGER.warn("Nie udało się wczytać configu, używam domyślnego", e);
         }
         I.ringCount = Math.max(1, Math.min(6, I.ringCount));
+        if (I.ver < 3) {          // nowa lista dźwięków: ding przy biciu, brak dźwięku zabicia
+            I.hitSound = 1;
+            I.killSound = 0;
+            I.ver = 3;
+        }
         if (I.hudPos == null) I.hudPos = new java.util.HashMap<>();
         if (I.circleText == null || I.circleText.isBlank()) I.circleText = "VISUALS";
         save();

@@ -406,6 +406,16 @@ public class VisualsScreen extends Screen {
                 rows.add(new ToggleRow("Magiczny krąg z napisem", () -> c.magicCircle, v -> c.magicCircle = v));
                 rows.add(new ToggleRow("Gwiazdki wokół gracza", () -> c.playerStars, v -> c.playerStars = v));
                 rows.add(new ToggleRow("Gwiazdki w powietrzu", () -> c.ambientStars, v -> c.ambientStars = v));
+                rows.add(new HeadRow("Więcej efektów wokół gracza"));
+                rows.add(new ToggleRow("Halo nad głową", () -> c.fxHalo, v -> c.fxHalo = v));
+                rows.add(new ToggleRow("Filar światła", () -> c.fxPillar, v -> c.fxPillar = v));
+                rows.add(new ToggleRow("Spirala (DNA)", () -> c.fxHelix, v -> c.fxHelix = v));
+                rows.add(new ToggleRow("Orbity z ogonem", () -> c.fxOrbs, v -> c.fxOrbs = v));
+                rows.add(new ToggleRow("Płomienie / iskry", () -> c.fxFlames, v -> c.fxFlames = v));
+                rows.add(new ToggleRow("Deszcz gwiazdek", () -> c.fxRain, v -> c.fxRain = v));
+                rows.add(new CycleRow("Kolor efektów", Config.PALETTE, () -> c.fxColor, v -> c.fxColor = v));
+                rows.add(new SliderRow("Odcień (dla \"Własny\")", 0f, 1f, 0.01f, "%.2f",
+                        () -> c.fxHue, v -> { c.fxHue = (float) v; Config.save(); }));
                 rows.add(new HeadRow("Trail za graczem"));
                 rows.add(new ToggleRow("Trail (smuga za graczem)", () -> c.trailOn, v -> c.trailOn = v));
                 rows.add(new CycleRow("Kolor trailu", Config.PALETTE, () -> c.trailColor, v -> c.trailColor = v));
@@ -479,9 +489,9 @@ public class VisualsScreen extends Screen {
                 rows.add(new CycleRow("Styl zabicia", new String[]{"Własny", "Aura (jak na filmie)", "Złota eksplozja", "Sam piorun"},
                         () -> preset, v -> {
                             preset = v;
-                            if (v == 1) { c.killEffect = 11; c.killSound = 1; c.hitSound = 1; c.ragdollMode = 0; c.killTitle = true; }
-                            if (v == 2) { c.killEffect = 10; c.killSound = 13; c.ragdollMode = 0; c.killTitle = true; }
-                            if (v == 3) { c.killEffect = 1; c.killSound = 4; c.ragdollMode = 1; c.killTitle = false; }
+                            if (v == 1) { c.killEffect = 11; c.killSound = 0; c.hitSound = 1; c.ragdollMode = 0; c.killTitle = true; }
+                            if (v == 2) { c.killEffect = 10; c.killSound = 10; c.ragdollMode = 0; c.killTitle = true; }
+                            if (v == 3) { c.killEffect = 1; c.killSound = 1; c.ragdollMode = 1; c.killTitle = false; }
                         }));
                 rows.add(new HeadRow("Efekt"));
                 rows.add(new CycleRow("Efekt zabicia", Fx.KILL_EFFECTS, () -> c.killEffect, v -> { c.killEffect = v; preset = 0; }));
@@ -536,6 +546,14 @@ public class VisualsScreen extends Screen {
                         () -> c.auraSize, v -> { c.auraSize = (float) v; Config.save(); }));
                 rows.add(new SliderRow("Jasność aury", 0.3f, 1.5f, 0.05f, "%.2f",
                         () -> c.auraIntensity, v -> { c.auraIntensity = (float) v; Config.save(); }));
+                rows.add(new HeadRow("Kwadrat na celu"));
+                rows.add(new ToggleRow("Kwadrat po najechaniu na gracza", () -> c.tbOn, v -> c.tbOn = v));
+                rows.add(new CycleRow("Styl", Config.TB_STYLES, () -> c.tbStyle, v -> c.tbStyle = v));
+                rows.add(new CycleRow("Kolor", Config.PALETTE, () -> c.tbColor, v -> c.tbColor = v));
+                rows.add(new SliderRow("Odcień (dla \"Własny\")", 0f, 1f, 0.01f, "%.2f",
+                        () -> c.tbHue, v -> { c.tbHue = (float) v; Config.save(); }));
+                rows.add(new SliderRow("Rozmiar", 0.6f, 1.6f, 0.05f, "%.2f",
+                        () -> c.tbSize, v -> { c.tbSize = (float) v; Config.save(); }));
                 rows.add(new HeadRow("Hit Color"));
                 rows.add(new ToggleRow("Hit Color (podświetlenie po uderzeniu)", () -> c.hitFlash, v -> c.hitFlash = v));
                 rows.add(new CycleRow("Kolor Hit Color", Config.PALETTE, () -> c.hitFlashColor, v -> c.hitFlashColor = v));
@@ -674,6 +692,14 @@ public class VisualsScreen extends Screen {
         // ramka z delikatnym przesuwającym się blaskiem
         rr(c, x - 1, y - 1, x + PW + 1, y + PH + 1, 13, ca(accA, 0.50f * a));
         rr(c, x, y, x + PW, y + PH, 12, ca(0x07070F, 0.94f * a));
+        {
+            float sp = (t * 0.16f) % 1f;
+            int sx0 = x + 14 + (int) (sp * (PW - 28 - 110));
+            for (int i = 0; i < 110; i += 2) {
+                float f = 1f - Math.abs(i - 55) / 55f;
+                c.fill(sx0 + i, y - 1, sx0 + i + 2, y + 1, ca(accB, 0.9f * f * a));
+            }
+        }
         for (int i = 0; i < 46; i++) {
             c.fill(x + 12, y + 1 + i, x + PW - 12, y + 2 + i, ca(accA, 0.055f * a * (1f - i / 46f)));
         }
@@ -729,7 +755,7 @@ public class VisualsScreen extends Screen {
         int vt = viewTop(), vb = viewBottom();
         viewH = vb - vt;
         float total = 0;
-        for (Row r : rows) total += r.h + 2;
+        for (int i = 0; i < rows.size(); i++) total += rows.get(i).h + 2 + (rows.get(i) instanceof HeadRow && i > 0 ? 6 : 0);
         contentH = total;
         float maxScroll = Math.max(0f, contentH - viewH);
         scrollTarget = clamp(scrollTarget, 0f, maxScroll);
@@ -741,16 +767,38 @@ public class VisualsScreen extends Screen {
         c.enableScissor(cx0 - 6, vt, cx0 + cw + 10, vb);
         float ry = vt - scroll;
         int idx = 0;
+        float[] ea = new float[rows.size()];
         for (Row r : rows) {
+            if (r instanceof HeadRow && idx > 0) ry += 6;
             float st = clamp((now - tabMs - idx * 22L) / 260f, 0f, 1f);
-            float ea = easeOutCubic(st);
-            r.x = cx0 + (int) ((1f - ea) * 18f);
+            ea[idx] = easeOutCubic(st);
+            r.x = cx0 + (int) ((1f - ea[idx]) * 18f);
             r.y = (int) ry;
             r.w = cw;
-            if (r.y + r.h > vt - 4 && r.y < vb + 4) {
-                r.draw(this, c, hmx, hmy, a * ea, dt, accA, accB);
-            }
             ry += r.h + 2;
+            idx++;
+        }
+        // karty sekcji
+        int gStart = -1;
+        for (int i = 0; i <= rows.size(); i++) {
+            boolean head = i < rows.size() && rows.get(i) instanceof HeadRow;
+            if ((head || i == rows.size()) && gStart >= 0) {
+                Row f = rows.get(gStart), l = rows.get(i - 1);
+                int y1 = f.y - 3, y2 = l.y + l.h + 3;
+                if (y2 > vt - 6 && y1 < vb + 6) {
+                    float ca0 = a * ea[gStart];
+                    rr(c, cx0 - 6, y1, cx0 + cw + 6, y2, 11, ca(accA, 0.13f * ca0));
+                    rr(c, cx0 - 5, y1 + 1, cx0 + cw + 5, y2 - 1, 10, ca(0x0B0B17, 0.97f * ca0));
+                }
+                gStart = -1;
+            }
+            if (head) gStart = i;
+        }
+        idx = 0;
+        for (Row r : rows) {
+            if (r.y + r.h > vt - 4 && r.y < vb + 4) {
+                r.draw(this, c, hmx, hmy, a * ea[idx], dt, accA, accB);
+            }
             idx++;
         }
         c.disableScissor();

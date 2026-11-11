@@ -24,8 +24,8 @@ public final class Fx {
     // ---------- tabele wyboru (nazwa, id dźwięku) ----------
     public static final String[][] HIT_SOUNDS = {
             {"Brak", ""},
-            {"Tik", "visuals:hit_film1"},
-            {"Snap", "visuals:hit_film2"},
+            {"Ding", "visuals:ding"},
+            {"Ding (z filmu)", "visuals:ding2"},
             {"Crit", "entity.player.attack.crit"},
             {"Mocny cios", "entity.player.attack.strong"},
             {"Machnięcie", "entity.player.attack.sweep"},
@@ -53,9 +53,6 @@ public final class Fx {
 
     public static final String[][] KILL_SOUNDS = {
             {"Brak", ""},
-            {"Aura", "visuals:kill_film1"},
-            {"Echo", "visuals:kill_film2"},
-            {"Puls", "visuals:kill_film3"},
             {"Piorun", "entity.lightning_bolt.thunder"},
             {"Uderzenie pioruna", "entity.lightning_bolt.impact"},
             {"Totem", "item.totem.use"},

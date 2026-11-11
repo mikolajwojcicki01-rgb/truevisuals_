@@ -60,8 +60,109 @@ public final class Extras {
     // =================================================================== Trail
     private static final Map<Integer, ArrayDeque<double[]>> TRAILS = new HashMap<>();
 
+    // =================================================================== kwadrat na celu
+    private static int tbId = -2;
+    private static int tbAge;
+
+    private static void tbTick(MinecraftClient mc) {
+        int id = -2;
+        if (mc.crosshairTarget instanceof net.minecraft.util.hit.EntityHitResult ehr
+                && ehr.getEntity() instanceof net.minecraft.entity.LivingEntity le && le != mc.player
+                && !le.isDead()) {
+            id = le.getId();
+        } else if (FakePlayer.I != null && FakePlayer.I.alive() && FakePlayer.I.rayHit(mc) > 0) {
+            id = -1000;
+        }
+        if (id != tbId) {
+            tbId = id;
+            tbAge = 0;
+        } else {
+            tbAge++;
+        }
+    }
+
+    private static void rect(double cx, double cy, double cz, double[] r, double[] u,
+                             double u0, double v0, double u1, double v1, int rgb, float a) {
+        double[][] pp = {{u0, v0}, {u1, v0}, {u1, v1}, {u0, v1}};
+        for (double[] q : pp) {
+            Draw.vert(cx + r[0] * q[0] + u[0] * q[1], cy + r[1] * q[0] + u[1] * q[1],
+                    cz + r[2] * q[0] + u[2] * q[1], rgb, a);
+        }
+    }
+
+    public static void renderTargetBox(MinecraftClient mc, ClientWorld world, float td, float time, float inten,
+                                       double[] right, double[] up) {
+        Config c = Config.I;
+        if (!c.tbOn || tbId == -2) return;
+        double x, y, z;
+        float h, w;
+        if (tbId == -1000) {
+            FakePlayer f = FakePlayer.I;
+            if (f == null || !f.alive()) return;
+            x = f.x();
+            y = f.y();
+            z = f.z();
+            h = 1.8f;
+            w = 0.6f;
+        } else {
+            net.minecraft.entity.Entity e = world.getEntityById(tbId);
+            if (!(e instanceof net.minecraft.entity.LivingEntity le) || le.isDead()) return;
+            Vec3d p = le.getLerpedPos(td);
+            x = p.x;
+            y = p.y;
+            z = p.z;
+            h = le.getHeight();
+            w = le.getWidth();
+        }
+        float anim = Math.min(1f, (tbAge + td) / 4f);
+        float ease = 1f - (1f - anim) * (1f - anim);
+        float a = ease * inten;
+        int col = Config.palette(c.tbColor, c.tbHue, 0.3f, time);
+        int col2 = Config.palette(c.tbColor, c.tbHue, 0.9f, time);
+
+        if (c.tbStyle == 1) {
+            // ramka 3D wokół hitboxu
+            double hw = w / 2 + 0.03, hh = h + 0.03;
+            double[][] cs = {{-hw, 0, -hw}, {hw, 0, -hw}, {hw, 0, hw}, {-hw, 0, hw}};
+            double th = 0.018 * c.tbSize;
+            for (int i = 0; i < 4; i++) {
+                double[] a0 = cs[i], a1 = cs[(i + 1) % 4];
+                PlayerFx.seg(x + a0[0], y, z + a0[2], x + a1[0], y, z + a1[2], right, th, col, a, a);
+                PlayerFx.seg(x + a0[0], y + hh, z + a0[2], x + a1[0], y + hh, z + a1[2], right, th, col2, a, a);
+                PlayerFx.seg(x + a0[0], y, z + a0[2], x + a0[0], y + hh, z + a0[2], right, th, col, a, a);
+            }
+            return;
+        }
+
+        // kwadrat zwrócony do kamery z narożnikami
+        double s = (h * 0.62 + 0.08) * c.tbSize * (0.85 + 0.15 * ease) * (1 + 0.02 * Math.sin(time * 4));
+        double cx = x, cy = y + h * 0.5, cz = z;
+        double L = s * 0.42, t = 0.035 * c.tbSize * (0.8 + 0.4 * Math.max(0.5, s));
+        // delikatne wypełnienie
+        rect(cx, cy, cz, right, up, -s, -s, s, s, col, 0.05f * a);
+        // cienka pełna ramka
+        double t2 = t * 0.35;
+        rect(cx, cy, cz, right, up, -s, s - t2, s, s, col, 0.30f * a);
+        rect(cx, cy, cz, right, up, -s, -s, s, -s + t2, col, 0.30f * a);
+        rect(cx, cy, cz, right, up, -s, -s, -s + t2, s, col, 0.30f * a);
+        rect(cx, cy, cz, right, up, s - t2, -s, s, s, col, 0.30f * a);
+        // narożniki
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sy = -1; sy <= 1; sy += 2) {
+                double ex = sx * s, ey = sy * s;
+                // pozioma belka
+                rect(cx, cy, cz, right, up, Math.min(ex, ex - sx * L), Math.min(ey, ey - sy * t),
+                        Math.max(ex, ex - sx * L), Math.max(ey, ey - sy * t), col2, 0.95f * a);
+                // pionowa belka
+                rect(cx, cy, cz, right, up, Math.min(ex, ex - sx * t), Math.min(ey, ey - sy * L),
+                        Math.max(ex, ex - sx * t), Math.max(ey, ey - sy * L), col2, 0.95f * a);
+            }
+        }
+    }
+
     // =================================================================== tick
     public static void tick(MinecraftClient mc) {
+        if (mc.world != null && mc.player != null) tbTick(mc);
         if (mc.world == null || mc.player == null) {
             DMG.clear();
             LAST_HP.clear();
