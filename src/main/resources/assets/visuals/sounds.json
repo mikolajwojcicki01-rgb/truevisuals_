@@ -1,0 +1,7 @@
+{
+  "hit_film1": {"sounds": [{"name": "visuals:hit_film1", "stream": false}]},
+  "hit_film2": {"sounds": [{"name": "visuals:hit_film2", "stream": false}]},
+  "kill_film1": {"sounds": [{"name": "visuals:kill_film1", "stream": false}]},
+  "kill_film2": {"sounds": [{"name": "visuals:kill_film2", "stream": false}]},
+  "kill_film3": {"sounds": [{"name": "visuals:kill_film3", "stream": false}]}
+}
